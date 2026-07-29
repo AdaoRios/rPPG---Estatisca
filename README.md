@@ -1,4 +1,4 @@
-# rPPG
+# rPPG - Residência Pipos
 
 O projeto é um único pacote Python localizado nesta pasta. A captura e a
 análise são independentes: a captura salva um MP4 e a análise recebe o caminho
