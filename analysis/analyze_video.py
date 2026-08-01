@@ -8,7 +8,7 @@ import numpy as np
 from rPPG.biomarkers.heart_rate import compute_hr_fft
 from rPPG.biomarkers.hrv import compute_hrv
 from rPPG.biomarkers.signal_metrics import compute_signal_metrics
-from rPPG.config import MODEL_PATH, ROI_POINTS
+from rPPG.config import DEBUG_COMPARE_ALGORITHMS, MODEL_PATH, ROI_POINTS
 from rPPG.extractors.combine import combine_roi_and_methods
 from rPPG.preprocessing.filters import bandpass_filter
 from rPPG.roi.face_detection import FaceDetector
@@ -50,7 +50,9 @@ def analyze_video(video_path):
     if valid_frames < 2:
         raise RuntimeError("Poucos frames válidos no vídeo para análise rPPG.")
     signals = {name: np.array(values, dtype=np.float64) for name, values in roi_signals.items()}
-    rppg_signal = combine_roi_and_methods(signals, fps)
+
+    rppg_signal = combine_roi_and_methods(signals, fps, DEBUG_COMPARE_ALGORITHMS)
+
     filtered_signal = bandpass_filter(rppg_signal, fps, low_hz=0.7, high_hz=4.0)
     return AnalysisResult(
         heart_rate=compute_hr_fft(filtered_signal, fps),

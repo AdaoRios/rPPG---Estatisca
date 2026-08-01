@@ -2,13 +2,16 @@
 
 from pathlib import Path
 
-MODEL_PATH = Path(__file__).resolve().parent / "assets" / "face_landmarker.task"
+MODEL_PATH = "assets/face_landmarker.task"
 DEBUG_COMPARE_ALGORITHMS = True
 
+HR_LOW_HZ = 0.7    # 42 bpm
+HR_HIGH_HZ = 4.0   # 240 bpm
+
 METHOD_WEIGHTS = {
-    "chrom": 0.0,
-    "pos": 1.0,
-    "green": 0.0,
+    "chrom": 0.4,
+    "pos": 0.4,
+    "green": 0.2,
 }
 
 ROI_WEIGHTS = {
