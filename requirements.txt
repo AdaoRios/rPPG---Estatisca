@@ -1,5 +1,5 @@
-matplotlib==3.11.1
-mediapipe==1.0.0
-numpy==2.5.1
-opencv-python==5.0.0.93
-scipy==1.18.0
+numpy
+opencv-python
+mediapipe
+matplotlib
+scipy
