@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal as sig
 from scipy.fft import rfft, rfftfreq
+from tkinter import TclError
 
 
 def plot_algorithm_comparison(chrom_signal, pos_signal, green_signal,
@@ -37,7 +38,11 @@ def plot_algorithm_comparison(chrom_signal, pos_signal, green_signal,
 
     colors = {"CHROM": "tab:blue", "POS": "tab:orange", "GREEN": "tab:green", "Combined": "tab:red"}
     display_len = min(min_len, int(round(10 * fps)))
-    figure, axes = plt.subplots(3, 1, figsize=(12, 10))
+    try:
+        figure, axes = plt.subplots(3, 1, figsize=(12, 10))
+    except TclError:
+        print("Algorithm diagnostic display is unavailable; persistent diagnostics will still be saved.")
+        return
     for name, signal in signals.items():
         axes[0].plot(np.arange(display_len) / fps, signal[:display_len], label=name, color=colors[name])
     axes[0].set(title="Algorithm Signals (Time Domain)", xlabel="Time (s)", ylabel="Normalized amplitude")

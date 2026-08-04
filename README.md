@@ -128,7 +128,8 @@ rPPG/
 │   └── quality_check.py           #   critério de aceitação de frame (rosto + brilho)
 │
 ├── analysis/                      # pipeline de análise (independente da captura)
-│   └── analyze_video.py           #   lê um .mp4 e roda o pipeline completo de rPPG
+│   ├── analyze_video.py           #   lê um .mp4 e roda o pipeline completo de rPPG
+│   └── fusion.py                  #   fusão, benchmarks e diagnóstico dos métodos/ROIs
 │
 ├── roi/
 │   ├── face_detection.py          #   wrapper do MediaPipe FaceLandmarker
@@ -142,7 +143,7 @@ rPPG/
 │   ├── chrom.py                    #   CHROM (De Haan & Jeanne, 2013)
 │   ├── pos.py                      #   POS (Wang et al., 2017)
 │   ├── green.py                    #   GREEN (Verkruysse et al., 2008)
-│   └── combine.py                  #   fusão ponderada entre algoritmos e ROIs
+│   └── combine.py                  #   fachada compatível para a fusão
 │
 ├── biomarkers/
 │   ├── heart_rate.py               #   frequência cardíaca via pico da FFT
@@ -151,8 +152,9 @@ rPPG/
 │   └── respiratory_rate.py         #   ainda não implementado
 │
 ├── reports/
-│   ├── report.py                   #   relatório final e benchmarks no console
-│   └── plots.py                    #   gráficos de diagnóstico (modo debug)
+│   ├── console.py                  #   relatório final e benchmarks no console
+│   ├── plots.py                    #   gráfico consolidado de diagnóstico (modo debug)
+│   └── report.py                   #   fachada compatível para o console
 │
 └── utils/
     └── models.py                   #   dataclass AnalysisResult
@@ -170,7 +172,7 @@ rPPG/
 - `signal_metrics` — `snr`, `spectral_concentration`, `fft_peak`, `amplitude`, `std`, `energy`
 - `fps`, `duration`, `valid_frames` — informações sobre a captura
 
-O relatório é impresso automaticamente via `print_report()` ao rodar `main.py`. Quando `DEBUG_COMPARE_ALGORITHMS = True` (ou `debug=True` em `combine_roi_and_methods`), também são impressos benchmarks comparando CHROM, POS e GREEN por ROI e por algoritmo, além de um gráfico com o sinal no tempo, o espectro de frequência e a correlação/defasagem entre os três métodos.
+O relatório é impresso automaticamente via `print_report()` ao rodar `main.py`. Quando `DEBUG_COMPARE_ALGORITHMS = True` (ou `debug=True` em `combine_roi_and_methods`), também são impressos benchmarks comparando CHROM, POS e GREEN por ROI e por algoritmo, além de um gráfico consolidado.
 
 
 ## Referências

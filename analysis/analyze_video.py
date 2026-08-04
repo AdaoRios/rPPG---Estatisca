@@ -9,7 +9,7 @@ from rPPG.biomarkers.heart_rate import compute_hr_fft
 from rPPG.biomarkers.hrv import compute_hrv
 from rPPG.biomarkers.signal_metrics import compute_signal_metrics
 from rPPG.config import DEBUG_COMPARE_ALGORITHMS, MODEL_PATH, ROI_POINTS
-from rPPG.extractors.combine import combine_roi_and_methods
+from rPPG.analysis.fusion import combine_roi_and_methods
 from rPPG.preprocessing.filters import bandpass_filter
 from rPPG.roi.face_detection import FaceDetector
 from rPPG.roi.roi_extraction import extract_roi_means

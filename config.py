@@ -1,7 +1,5 @@
 """Shared rPPG configuration."""
 
-from pathlib import Path
-
 MODEL_PATH = "assets/face_landmarker.task"
 DEBUG_COMPARE_ALGORITHMS = True
 
