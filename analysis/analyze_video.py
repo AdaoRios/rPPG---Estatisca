@@ -5,14 +5,15 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from rPPG.biomarkers.heart_rate import compute_hr_fft
-from rPPG.biomarkers.hrv import compute_hrv
-from rPPG.biomarkers.signal_metrics import compute_signal_metrics
+from rPPG.biomarkers import (
+    calcular_hrv,
+    calcular_metricas_sinal,
+    estimar_frequencia_cardiaca,
+)
 from rPPG.config import DEBUG_COMPARE_ALGORITHMS, MODEL_PATH, ROI_POINTS
-from rPPG.analysis.fusion import combine_roi_and_methods
-from rPPG.preprocessing.filters import bandpass_filter
-from rPPG.roi.face_detection import FaceDetector
-from rPPG.roi.roi_extraction import extract_roi_means
+from rPPG.extractors.combination import combine_roi_and_methods
+from rPPG.preprocessing.processamento import filtrar_passa_banda
+from rPPG.roi.facial import DetectorFace, extrair_medias_rois
 from rPPG.utils.models import AnalysisResult
 
 
@@ -25,7 +26,7 @@ def analyze_video(video_path):
     if not capture.isOpened():
         raise RuntimeError(f"Não foi possível abrir o vídeo: {video_path}")
     fps = capture.get(cv2.CAP_PROP_FPS) or 30.0
-    detector = FaceDetector(MODEL_PATH)
+    detector = DetectorFace(MODEL_PATH)
     roi_signals = {roi_name: [] for roi_name in ROI_POINTS}
     frame_index = 0
     try:
@@ -35,16 +36,16 @@ def analyze_video(video_path):
                 break
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             timestamp_ms = int(frame_index * 1000.0 / fps)
-            landmarks = detector.detect(rgb_frame, timestamp_ms)
+            landmarks = detector.detectar(rgb_frame, timestamp_ms)
             if landmarks is not None:
-                means = extract_roi_means(rgb_frame, landmarks, ROI_POINTS)
+                means = extrair_medias_rois(rgb_frame, landmarks, ROI_POINTS)
                 if means is not None:
                     for roi_name in ROI_POINTS:
                         roi_signals[roi_name].append(means[roi_name])
             frame_index += 1
     finally:
         capture.release()
-        detector.close()
+        detector.fechar()
 
     valid_frames = len(next(iter(roi_signals.values())))
     if valid_frames < 2:
@@ -53,12 +54,12 @@ def analyze_video(video_path):
 
     rppg_signal = combine_roi_and_methods(signals, fps, DEBUG_COMPARE_ALGORITHMS)
 
-    filtered_signal = bandpass_filter(rppg_signal, fps, low_hz=0.7, high_hz=4.0)
+    filtered_signal = filtrar_passa_banda(rppg_signal, fps, low_hz=0.7, high_hz=4.0)
     return AnalysisResult(
-        heart_rate=compute_hr_fft(filtered_signal, fps),
-        hrv=compute_hrv(filtered_signal, fps),
+        heart_rate=estimar_frequencia_cardiaca(filtered_signal, fps),
+        hrv=calcular_hrv(filtered_signal, fps),
         respiratory_rate=None,
-        signal_metrics=compute_signal_metrics(filtered_signal, fps),
+        signal_metrics=calcular_metricas_sinal(filtered_signal, fps),
         fps=fps,
         duration=valid_frames / fps,
         valid_frames=valid_frames,

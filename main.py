@@ -9,15 +9,15 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from rPPG.analysis.analyze_video import analyze_video
-from rPPG.capture.capture_video import capture_video
-from rPPG.reports.report import print_report
+from rPPG.capture.captura import capturar_video
+from rPPG.reports.apresentacao import imprimir_relatorio
 
 
 def _capture_and_analyze(camera, duration):
     """Run the complete capture followed by analysis workflow."""
-    video_path = capture_video(camera, duration)
+    video_path = capturar_video(camera, duration)
     result = analyze_video(video_path)
-    print_report(result)
+    imprimir_relatorio(result)
     return result
 
 
@@ -37,11 +37,11 @@ def _interactive_menu():
 
         try:
             if option == "1":
-                print(capture_video())
+                print(capturar_video())
             elif option == "2":
                 video_path = input("Digite o caminho do vídeo:\n> ").strip().strip('"')
                 result = analyze_video(video_path)
-                print_report(result)
+                imprimir_relatorio(result)
             elif option == "3":
                 _capture_and_analyze(camera=0, duration=30.0)
             elif option == "4":
@@ -69,12 +69,12 @@ def main(argv=None):
         return _interactive_menu()
 
     if args.capture_only:
-        video_path = args.video or capture_video(args.camera, args.duration)
+        video_path = args.video or capturar_video(args.camera, args.duration)
         print(video_path)
         return video_path
     if args.video:
         result = analyze_video(args.video)
-        print_report(result)
+        imprimir_relatorio(result)
         return result
     return _capture_and_analyze(args.camera, args.duration)
 

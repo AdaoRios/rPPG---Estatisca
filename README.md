@@ -124,37 +124,34 @@ rPPG/
 │   └── face_landmarker.task       # modelo de landmarks faciais (MediaPipe)
 │
 ├── capture/                       # pipeline de captura (independente da análise)
-│   ├── capture_video.py           #   grava webcam -> .mp4 com verificação de qualidade
-│   └── quality_check.py           #   critério de aceitação de frame (rosto + brilho)
+│   ├── captura.py                 #   webcam, qualidade do quadro e gravação MP4
+│   └── __init__.py                #   API pública de captura
 │
 ├── analysis/                      # pipeline de análise (independente da captura)
-│   ├── analyze_video.py           #   lê um .mp4 e roda o pipeline completo de rPPG
-│   └── fusion.py                  #   fusão, benchmarks e diagnóstico dos métodos/ROIs
+│   └── analyze_video.py           #   lê um .mp4 e orquestra o pipeline completo de rPPG usando extractors/combination.py
 │
 ├── roi/
-│   ├── face_detection.py          #   wrapper do MediaPipe FaceLandmarker
-│   └── roi_extraction.py          #   máscara + média RGB de cada ROI
+│   ├── facial.py                  #   landmarks, máscaras e médias RGB das ROIs
+│   └── __init__.py                #   API pública de regiões faciais
 │
 ├── preprocessing/
-│   ├── smoothing.py                #   suavização por média móvel
-│   └── filters.py                  #   filtro passa-banda Butterworth
+│   ├── processamento.py           #   suavização e filtro passa-banda
+│   └── __init__.py                #   API pública de pré-processamento
 │
-├── extractors/                     # algoritmos de extração do sinal rPPG
-│   ├── chrom.py                    #   CHROM (De Haan & Jeanne, 2013)
-│   ├── pos.py                      #   POS (Wang et al., 2017)
-│   ├── green.py                    #   GREEN (Verkruysse et al., 2008)
-│   └── combine.py                  #   fachada compatível para a fusão
+├── extractors/                     # extração e fusão do sinal rPPG
+│   ├── algorithms.py               #   CHROM, POS e GREEN
+│   ├── combination.py              #   fusão ponderada e benchmarks
+│   └── __init__.py                 #   API pública dos extratores
 │
 ├── biomarkers/
 │   ├── heart_rate.py               #   frequência cardíaca via pico da FFT
 │   ├── hrv.py                      #   SDNN, RMSSD, pNN50
-│   ├── signal_metrics.py           #   SNR, concentração espectral, amplitude, energia
+│   ├── signal_metrics.py           #   métricas de qualidade de sinal e FFT
 │   └── respiratory_rate.py         #   ainda não implementado
 │
 ├── reports/
-│   ├── console.py                  #   relatório final e benchmarks no console
-│   ├── plots.py                    #   gráfico consolidado de diagnóstico (modo debug)
-│   └── report.py                   #   fachada compatível para o console
+│   ├── apresentacao.py             #   implementação de console e gráficos
+│   └── __init__.py                 #   API pública de apresentação
 │
 └── utils/
     └── models.py                   #   dataclass AnalysisResult

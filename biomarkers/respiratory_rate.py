@@ -1,6 +1,6 @@
-"""Reserved extension point for respiratory-rate estimation."""
+"""Ponto de extensão para estimativa de taxa respiratória."""
 
 
-def compute_respiratory_rate(*args, **kwargs):
-    """Estimate respiratory rate in a future implementation."""
-    raise NotImplementedError("Respiratory-rate estimation is not implemented yet.")
+def estimar_taxa_respiratoria(*args, **kwargs):
+    """Estima a taxa respiratória em implementações futuras."""
+    raise NotImplementedError("A estimativa da taxa respiratória ainda não foi implementada.")

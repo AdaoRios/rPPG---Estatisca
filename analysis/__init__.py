@@ -1,1 +1,1 @@
-"""Independent video-analysis pipeline."""
+"""Orquestração da análise de vídeo rPPG."""
