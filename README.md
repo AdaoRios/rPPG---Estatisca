@@ -34,7 +34,7 @@ sinal.
 ## Instalação
 
 ```bash
-git clone https://github.com/AdaoRios/rPPG---Estatisca.git
+git clone https://github.com/AdaoRios/rPPG.git
 cd rPPG
 pip install -r requirements.txt
 ```
