@@ -3,6 +3,9 @@
 from dataclasses import dataclass
 from typing import Any
 
+from rPPG.preprocessing.detrend import detrend
+from rPPG.preprocessing.processing import _process_video
+
 
 @dataclass
 class AnalysisResult:
@@ -15,3 +18,6 @@ class AnalysisResult:
     fps: float
     duration: float
     valid_frames: int
+
+
+__all__ = ["AnalysisResult", "_process_video", "detrend"]

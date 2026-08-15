@@ -7,9 +7,11 @@ def _format_value(value):
     return "N/A" if value is None or not np.isfinite(value) else f"{value:.2f}"
 
 
-def print_algorithm_benchmark(chrom_metrics, pos_metrics, green_metrics):
+def print_algorithm_benchmark(chrom_metrics, pos_metrics, green_metrics, ica_metrics=None):
     """Print the per-algorithm benchmark without changing any weights."""
     algorithms = {"CHROM": chrom_metrics, "POS": pos_metrics, "GREEN": green_metrics}
+    if ica_metrics is not None:
+        algorithms["ICA"] = ica_metrics
     labels = (("hr_bpm", "HR (bpm)"), ("snr", "SNR (dB)"),
               ("spectral_concentration", "Spectral Concentration"),
               ("fft_peak", "FFT Peak"), ("peak_ratio", "Peak Ratio"),

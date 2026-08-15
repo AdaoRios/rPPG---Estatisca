@@ -6,11 +6,11 @@ from scipy import signal as sig
 from scipy.fft import rfft, rfftfreq
 
 
-def plot_algorithm_comparison(chrom_signal, pos_signal, green_signal,
+def plot_algorithm_comparison(chrom_signal, pos_signal, green_signal, ica_signal,
                               combined_signal, fps):
     """Plot time/FFT comparisons and print pairwise correlation diagnostics."""
     signals = {"CHROM": chrom_signal, "POS": pos_signal,
-               "GREEN": green_signal, "Combined": combined_signal}
+               "GREEN": green_signal, "ICA": ica_signal, "Combined": combined_signal}
     min_len = min(len(signal) for signal in signals.values())
     signals = {name: signal[:min_len] for name, signal in signals.items()}
 
@@ -24,18 +24,24 @@ def plot_algorithm_comparison(chrom_signal, pos_signal, green_signal,
 
     chrom_pos = correlation_and_lag(signals["CHROM"], signals["POS"])
     chrom_green = correlation_and_lag(signals["CHROM"], signals["GREEN"])
+    chrom_ica = correlation_and_lag(signals["CHROM"], signals["ICA"])
     pos_green = correlation_and_lag(signals["POS"], signals["GREEN"])
+    pos_ica = correlation_and_lag(signals["POS"], signals["ICA"])
+    green_ica = correlation_and_lag(signals["GREEN"], signals["ICA"])
     print("\n========== Algorithm Diagnostics ==========")
     for label, values in (("CHROM x POS", chrom_pos), ("CHROM x GREEN", chrom_green),
-                          ("POS x GREEN", pos_green)):
+                          ("CHROM x ICA", chrom_ica), ("POS x GREEN", pos_green),
+                          ("POS x ICA", pos_ica), ("GREEN x ICA", green_ica)):
         print(f"{label} correlation      : {values[0]:.2f}")
     print()
     for label, values in (("CHROM x POS", chrom_pos), ("CHROM x GREEN", chrom_green),
-                          ("POS x GREEN", pos_green)):
+                          ("CHROM x ICA", chrom_ica), ("POS x GREEN", pos_green),
+                          ("POS x ICA", pos_ica), ("GREEN x ICA", green_ica)):
         print(f"{label} lag              : {values[1]:+d} frame")
     print("===========================================\n")
 
-    colors = {"CHROM": "tab:blue", "POS": "tab:orange", "GREEN": "tab:green", "Combined": "tab:red"}
+    colors = {"CHROM": "tab:blue", "POS": "tab:orange", "GREEN": "tab:green",
+              "ICA": "tab:purple", "Combined": "tab:red"}
     display_len = min(min_len, int(round(10 * fps)))
     figure, axes = plt.subplots(3, 1, figsize=(12, 10))
     for name, signal in signals.items():
@@ -52,7 +58,10 @@ def plot_algorithm_comparison(chrom_signal, pos_signal, green_signal,
     axes[2].text(0.05, 0.95, "Correlation and lag diagnostics\n\n"
                  f"CHROM x POS: {chrom_pos[0]:.2f} ({chrom_pos[1]:+d} frames)\n"
                  f"CHROM x GREEN: {chrom_green[0]:.2f} ({chrom_green[1]:+d} frames)\n"
-                 f"POS x GREEN: {pos_green[0]:.2f} ({pos_green[1]:+d} frames)",
+                 f"CHROM x ICA: {chrom_ica[0]:.2f} ({chrom_ica[1]:+d} frames)\n"
+                 f"POS x GREEN: {pos_green[0]:.2f} ({pos_green[1]:+d} frames)\n"
+                 f"POS x ICA: {pos_ica[0]:.2f} ({pos_ica[1]:+d} frames)\n"
+                 f"GREEN x ICA: {green_ica[0]:.2f} ({green_ica[1]:+d} frames)",
                  va="top", fontsize=12)
     figure.tight_layout()
     plt.show()

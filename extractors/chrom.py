@@ -1,49 +1,54 @@
-"""CHROM rPPG extractor."""
+"""POS
+Wang, W., den Brinker, A. C., Stuijk, S., & de Haan, G. (2017). 
+Algorithmic principles of remote PPG. 
+IEEE Transactions on Biomedical Engineering, 64(7), 1479-1491. 
+"""
 
+import math
 import numpy as np
-from scipy import signal as sig
-from rPPG.config import HR_LOW_HZ, HR_HIGH_HZ
+from scipy import signal
 
+from rPPG.preprocessing.processing import _process_video
 
-def chrom_algorithm(rgb_raw, fps, window_s=1.6, low_hz=HR_LOW_HZ, high_hz=HR_HIGH_HZ, order=3):
-    n_frames = rgb_raw.shape[0]
-    nyquist = 0.5 * fps
-    b, a = sig.butter(order, [low_hz / nyquist, high_hz / nyquist], btype="band")
+def chrom_algorithm(frames,FS):
+    LPF = 0.7
+    HPF = 2.5
+    WinSec = 1.6
 
-    win_len = int(round(window_s * fps))
-    if win_len % 2:
-        win_len += 1
-    half = win_len // 2
+    RGB = _process_video(frames)
+    FN = RGB.shape[0]
+    NyquistF = 1/2*FS
+    B, A = signal.butter(3, [LPF/NyquistF, HPF/NyquistF], 'bandpass')
 
-    n_windows = (n_frames - half) // half
-    total_len = half * (n_windows + 1)
-    combined = np.zeros(total_len)
+    WinL = math.ceil(WinSec*FS)
+    if(WinL % 2):
+        WinL = WinL+1
+    NWin = math.floor((FN-WinL//2)/(WinL//2))
+    WinS = 0
+    WinM = int(WinS+WinL//2)
+    WinE = WinS+WinL
+    totallen = (WinL//2)*(NWin+1)
+    S = np.zeros(totallen)
 
-    win_start = 0
-    for _ in range(n_windows):
-        win_mid = win_start + half
-        win_end = win_start + win_len
+    for i in range(NWin):
+        RGBBase = np.mean(RGB[WinS:WinE, :], axis=0)
+        RGBNorm = np.zeros((WinE-WinS, 3))
+        for temp in range(WinS, WinE):
+            RGBNorm[temp-WinS] = np.true_divide(RGB[temp], RGBBase)
+        Xs = np.squeeze(3*RGBNorm[:, 0]-2*RGBNorm[:, 1])
+        Ys = np.squeeze(1.5*RGBNorm[:, 0]+RGBNorm[:, 1]-1.5*RGBNorm[:, 2])
+        Xf = signal.filtfilt(B, A, Xs, axis=0)
+        Yf = signal.filtfilt(B, A, Ys)
 
-        segment = rgb_raw[win_start:win_end]
-        base = np.mean(segment, axis=0)
-        base[base == 0] = 1e-6
-        seg_norm = segment / base
+        Alpha = np.std(Xf) / np.std(Yf)
+        SWin = Xf-Alpha*Yf
+        SWin = np.multiply(SWin, signal.windows.hann(WinL))
 
-        x_signal = 3 * seg_norm[:, 0] - 2 * seg_norm[:, 1]
-        y_signal = 1.5 * seg_norm[:, 0] + seg_norm[:, 1] - 1.5 * seg_norm[:, 2]
-
-        x_filt = sig.filtfilt(b, a, x_signal)
-        y_filt = sig.filtfilt(b, a, y_signal)
-
-        std_x, std_y = np.std(x_filt), np.std(y_filt)
-        alpha = std_x / std_y if std_y != 0 else 1.0
-
-        window_signal = x_filt - alpha * y_filt
-        window_signal = window_signal * sig.windows.hann(win_len)
-
-        combined[win_start:win_mid] += window_signal[:half]
-        combined[win_mid:win_end] = window_signal[half:]
-
-        win_start = win_mid
-
-    return combined
+        temp = SWin[:int(WinL//2)]
+        S[WinS:WinM] = S[WinS:WinM] + SWin[:int(WinL//2)]
+        S[WinM:WinE] = SWin[int(WinL//2):]
+        WinS = WinM
+        WinM = WinS+WinL//2
+        WinE = WinS+WinL
+    BVP = S
+    return BVP

@@ -1,17 +1,15 @@
 """Shared rPPG configuration."""
-
-from pathlib import Path
-
 MODEL_PATH = "assets/face_landmarker.task"
-DEBUG_COMPARE_ALGORITHMS = True
+DEBUG_COMPARE_ALGORITHMS = False
 
-HR_LOW_HZ = 0.7    # 42 bpm
-HR_HIGH_HZ = 4.0   # 240 bpm
+HR_LOW_HZ = 0.8    # 48 bpm
+HR_HIGH_HZ = 3.0   # 180 bpm
 
 METHOD_WEIGHTS = {
-    "chrom": 0.4,
-    "pos": 0.4,
-    "green": 0.2,
+    "chrom": 0.3,
+    "pos": 0.3,
+    "ica": 0.3,
+    "green": 0.1
 }
 
 ROI_WEIGHTS = {
@@ -21,7 +19,7 @@ ROI_WEIGHTS = {
 }
 
 ROI_POINTS = {
-    "testa": [67, 109, 10, 338, 297, 332, 284, 251, 301, 71],
-    "bochecha_esquerda": [50, 187, 205, 36, 142, 126, 209, 49, 129, 203],
-    "bochecha_direita": [280, 411, 425, 266, 371, 355, 429, 279, 358, 423],
+    "testa": [109, 67, 103, 10, 332, 297, 338, 151, 9, 8],
+    "bochecha_esquerda": [117, 118, 101, 123, 187, 207, 192, 214, 138, 135, 198, 50],
+    "bochecha_direita": [346, 347, 330, 352, 411, 427, 416, 434, 367, 364, 418, 280],
 }
