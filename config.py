@@ -2,6 +2,21 @@
 MODEL_PATH = "assets/face_landmarker.task"
 DEBUG_COMPARE_ALGORITHMS = False
 
+# Capture readiness MVP: initial experimental values, to be calibrated with
+# webcam observations. The metric is median landmark displacement / face diagonal.
+MOVEMENT_THRESHOLD = 0.010
+MOVEMENT_WINDOW_SIZE = 5
+READY_STABLE_FRAMES = 15
+
+# Face Framing MVP: normalized to the full frame; experimental values to
+# calibrate with webcam observations.
+FACE_MIN_WIDTH_RATIO = 0.25
+FACE_MAX_WIDTH_RATIO = 0.70
+FACE_MIN_HEIGHT_RATIO = 0.35
+FACE_MAX_HEIGHT_RATIO = 0.85
+FACE_MAX_CENTER_OFFSET_X = 0.15
+FACE_MAX_CENTER_OFFSET_Y = 0.18
+
 HR_LOW_HZ = 0.8    # 48 bpm
 HR_HIGH_HZ = 3.0   # 180 bpm
 
