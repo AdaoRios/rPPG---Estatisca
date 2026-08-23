@@ -157,19 +157,20 @@ class FaceFramingQualityChecker:
         face_center_x = ((x_min + x_max) / 2) / frame_width
         face_center_y = ((y_min + y_max) / 2) / frame_height
         bbox = (int(x_min), int(y_min), int(x_max), int(y_max))
+        comparison_tolerance = np.finfo(float).eps
 
         size_too_small = (
-            face_width_ratio < self.min_width_ratio
-            or face_height_ratio < self.min_height_ratio
+            face_width_ratio < self.min_width_ratio - comparison_tolerance
+            or face_height_ratio < self.min_height_ratio - comparison_tolerance
         )
         size_too_large = (
-            face_width_ratio > self.max_width_ratio
-            or face_height_ratio > self.max_height_ratio
+            face_width_ratio > self.max_width_ratio + comparison_tolerance
+            or face_height_ratio > self.max_height_ratio + comparison_tolerance
         )
         size_ok = not size_too_small and not size_too_large
         position_ok = (
-            abs(face_center_x - 0.5) <= self.max_center_offset_x
-            and abs(face_center_y - 0.5) <= self.max_center_offset_y
+            abs(face_center_x - 0.5) <= self.max_center_offset_x + comparison_tolerance
+            and abs(face_center_y - 0.5) <= self.max_center_offset_y + comparison_tolerance
         )
         framing_ok = size_ok and position_ok
         if size_too_small:

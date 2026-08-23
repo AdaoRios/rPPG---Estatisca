@@ -5,6 +5,14 @@ import unittest
 import numpy as np
 
 from capture.quality_check import FaceFramingQualityChecker, MovementQualityChecker
+from config import (
+    FACE_MAX_CENTER_OFFSET_X,
+    FACE_MAX_CENTER_OFFSET_Y,
+    FACE_MAX_HEIGHT_RATIO,
+    FACE_MAX_WIDTH_RATIO,
+    FACE_MIN_HEIGHT_RATIO,
+    FACE_MIN_WIDTH_RATIO,
+)
 
 
 def _face(scale=100.0):
@@ -63,41 +71,102 @@ class FaceFramingQualityCheckerTests(unittest.TestCase):
 
     def setUp(self):
         self.checker = FaceFramingQualityChecker(
-            min_width_ratio=0.25,
-            max_width_ratio=0.70,
-            min_height_ratio=0.35,
-            max_height_ratio=0.85,
-            max_center_offset_x=0.15,
-            max_center_offset_y=0.18,
+            min_width_ratio=FACE_MIN_WIDTH_RATIO,
+            max_width_ratio=FACE_MAX_WIDTH_RATIO,
+            min_height_ratio=FACE_MIN_HEIGHT_RATIO,
+            max_height_ratio=FACE_MAX_HEIGHT_RATIO,
+            max_center_offset_x=FACE_MAX_CENTER_OFFSET_X,
+            max_center_offset_y=FACE_MAX_CENTER_OFFSET_Y,
         )
 
-    def test_face_size_outside_range_is_not_ok(self):
-        small = self.checker.evaluate([[450, 450], [550, 550]], self.frame_shape)
-        large = self.checker.evaluate([[50, 50], [950, 950]], self.frame_shape)
-        self.assertFalse(small.size_ok)
-        self.assertEqual(small.message, "APROXIME O ROSTO")
-        self.assertFalse(large.size_ok)
-        self.assertEqual(large.message, "AFASTE O ROSTO")
+    def test_calibrated_thresholds(self):
+        self.assertEqual(FACE_MIN_WIDTH_RATIO, 0.28)
+        self.assertEqual(FACE_MAX_WIDTH_RATIO, 0.45)
+        self.assertEqual(FACE_MIN_HEIGHT_RATIO, 0.45)
+        self.assertEqual(FACE_MAX_HEIGHT_RATIO, 0.80)
+        self.assertEqual(FACE_MAX_CENTER_OFFSET_X, 0.15)
+        self.assertEqual(FACE_MAX_CENTER_OFFSET_Y, 0.18)
 
-    def test_centered_face_with_acceptable_size_is_ok(self):
-        result = self.checker.evaluate([[350, 300], [650, 700]], self.frame_shape)
+    def test_face_below_minimum_size_is_not_ok(self):
+        result = self.checker.evaluate([[360.5, 275], [639.5, 725]], self.frame_shape)
+        self.assertFalse(result.size_ok)
+        self.assertFalse(result.framing_ok)
+        self.assertEqual(result.message, "APROXIME O ROSTO")
+
+    def test_face_exactly_at_minimum_size_is_ok(self):
+        result = self.checker.evaluate([[360, 275], [640, 725]], self.frame_shape)
+        self.assertEqual(result.face_width_ratio, 0.28)
+        self.assertEqual(result.face_height_ratio, 0.45)
+        self.assertTrue(result.size_ok)
+        self.assertTrue(result.framing_ok)
+
+    def test_face_within_size_range_is_ok(self):
+        result = self.checker.evaluate([[320, 225], [680, 775]], self.frame_shape)
         self.assertTrue(result.size_ok)
         self.assertTrue(result.position_ok)
         self.assertTrue(result.framing_ok)
         self.assertEqual(result.message, "ROSTO ENQUADRADO")
 
-    def test_off_center_face_fails_position_only(self):
-        result = self.checker.evaluate([[550, 300], [850, 700]], self.frame_shape)
+    def test_face_exactly_at_maximum_size_is_ok(self):
+        result = self.checker.evaluate([[275, 100], [725, 900]], self.frame_shape)
+        self.assertEqual(result.face_width_ratio, 0.45)
+        self.assertEqual(result.face_height_ratio, 0.80)
+        self.assertTrue(result.size_ok)
+        self.assertTrue(result.framing_ok)
+
+    def test_face_above_maximum_size_is_not_ok(self):
+        result = self.checker.evaluate([[274.5, 100], [725.5, 900]], self.frame_shape)
+        self.assertFalse(result.size_ok)
+        self.assertFalse(result.framing_ok)
+        self.assertEqual(result.message, "AFASTE O ROSTO")
+
+    def test_center_exactly_at_left_limit_is_ok(self):
+        result = self.checker.evaluate([[210, 275], [490, 725]], self.frame_shape)
+        self.assertEqual(result.face_center_x, 0.35)
+        self.assertTrue(result.position_ok)
+        self.assertTrue(result.framing_ok)
+
+    def test_center_exactly_at_right_limit_is_ok(self):
+        result = self.checker.evaluate([[510, 275], [790, 725]], self.frame_shape)
+        self.assertEqual(result.face_center_x, 0.65)
+        self.assertTrue(result.position_ok)
+        self.assertTrue(result.framing_ok)
+
+    def test_center_exactly_at_top_limit_is_ok(self):
+        result = self.checker.evaluate([[360, 95], [640, 545]], self.frame_shape)
+        self.assertEqual(result.face_center_y, 0.32)
+        self.assertTrue(result.position_ok)
+        self.assertTrue(result.framing_ok)
+
+    def test_center_exactly_at_bottom_limit_is_ok(self):
+        result = self.checker.evaluate([[360, 455], [640, 905]], self.frame_shape)
+        self.assertEqual(result.face_center_y, 0.68)
+        self.assertTrue(result.position_ok)
+        self.assertTrue(result.framing_ok)
+
+    def test_face_outside_centering_region_is_not_ok(self):
+        result = self.checker.evaluate([[209, 275], [489, 725]], self.frame_shape)
         self.assertTrue(result.size_ok)
         self.assertFalse(result.position_ok)
         self.assertFalse(result.framing_ok)
         self.assertEqual(result.message, "CENTRALIZE O ROSTO")
 
-    def test_missing_invalid_and_degenerate_landmarks_are_safe(self):
+    def test_missing_face_returns_structured_result(self):
         missing = self.checker.evaluate(None, self.frame_shape)
+        self.assertFalse(missing.face_detected)
+        self.assertIsNone(missing.face_width_ratio)
+        self.assertIsNone(missing.face_height_ratio)
+        self.assertIsNone(missing.face_center_x)
+        self.assertIsNone(missing.face_center_y)
+        self.assertFalse(missing.size_ok)
+        self.assertFalse(missing.position_ok)
+        self.assertFalse(missing.framing_ok)
+        self.assertIsNone(missing.bbox)
+        self.assertEqual(missing.message, "ROSTO NAO DETECTADO")
+
+    def test_invalid_and_degenerate_landmarks_are_safe(self):
         invalid = self.checker.evaluate([[1]], self.frame_shape)
         degenerate = self.checker.evaluate([[500, 500], [500, 500]], self.frame_shape)
-        self.assertFalse(missing.face_detected)
         self.assertFalse(invalid.face_detected)
         self.assertTrue(degenerate.face_detected)
         self.assertFalse(degenerate.size_ok)

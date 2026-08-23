@@ -8,12 +8,13 @@ MOVEMENT_THRESHOLD = 0.010
 MOVEMENT_WINDOW_SIZE = 5
 READY_STABLE_FRAMES = 15
 
-# Face Framing MVP: normalized to the full frame; experimental values to
-# calibrate with webcam observations.
-FACE_MIN_WIDTH_RATIO = 0.25
-FACE_MAX_WIDTH_RATIO = 0.70
-FACE_MIN_HEIGHT_RATIO = 0.35
-FACE_MAX_HEIGHT_RATIO = 0.85
+# Face Framing MVP: normalized to the full frame. These experimental values
+# were calibrated from manual tests with one webcam/user; they are not
+# clinically or universally validated.
+FACE_MIN_WIDTH_RATIO = 0.28
+FACE_MAX_WIDTH_RATIO = 0.45
+FACE_MIN_HEIGHT_RATIO = 0.45
+FACE_MAX_HEIGHT_RATIO = 0.80
 FACE_MAX_CENTER_OFFSET_X = 0.15
 FACE_MAX_CENTER_OFFSET_Y = 0.18
 
