@@ -11,8 +11,9 @@ durante a webcam. Ele fornece feedback no overlay OpenCV; não seleciona frames,
 não calcula score agregado e não decide se biometria pode começar.
 
 - **[IMPLEMENTADO]** movimento e enquadramento durante preview e gravação.
-- **[NÃO IMPLEMENTADO]** iluminação/exposição, blur, pose, oclusão, score geral
-  e quality gate.
+- **[IMPLEMENTADO]** métricas observacionais de iluminação facial por frame.
+- **[NÃO IMPLEMENTADO]** thresholds finais de iluminação/exposição, blur, pose,
+  oclusão, score geral e quality gate.
 - **[PARCIAL]** `consecutive_stable_frames` é calculado, mas não libera captura.
 
 ## 2. Estado atual e arquitetura
@@ -22,12 +23,13 @@ não calcula score agregado e não decide se biometria pode começar.
 | `main.py` | CLI/menu; orquestra captura e/ou análise. |
 | `capture/capture_video.py` | Loop OpenCV, preview, MP4 e overlay. |
 | `capture/quality_check.py` | Checkers/dataclasses de movimento e enquadramento. |
+| `capture/lighting_quality.py` | Checker/dataclass de métricas de iluminação facial. |
 | `roi/face_detection.py` | Wrapper MediaPipe Face Landmarker em modo `VIDEO`. |
 | `config.py` | Modelo, thresholds experimentais e janela. |
 | `analysis/analyze_video.py` | Pipeline offline do MP4 para rPPG. |
 | `roi/roi_extraction.py` | Médias RGB de ROIs de testa e bochechas. |
 | `extractors/*`, `preprocessing/*`, `biomarkers/*` | Fusão rPPG, filtros e métricas. |
-| `test_quality_check.py` | Nove testes unitários dos checkers. |
+| `test_quality_check.py` / `test_lighting_quality.py` | Testes unitários de framing/movimento e iluminação. |
 
 Dependências: `opencv-python` (câmera/MP4/UI), `mediapipe` (landmarks),
 `numpy`, `scipy` (filtros/FFT) e `matplotlib` (diagnóstico opcional).
@@ -43,6 +45,7 @@ main.main()
       -> FaceDetector.detect(rgb_frame, timestamp_ms)
       -> MovementQualityChecker.update(landmarks)
       -> FaceFramingQualityChecker.evaluate(landmarks, frame.shape)
+      -> LightingQualityChecker.evaluate(rgb_frame, framing.bbox)
       -> overlay + cv2.imshow()
       -> (depois de ENTER) VideoWriter.write(frame) -> data/captures/*.mp4
     -> analyze_video(video_path)
@@ -176,6 +179,79 @@ condições. **[NÃO IMPLEMENTADO]** threshold de iluminação, blur, qualidade
 geral, score de prontidão ou mínimo de frames para iniciar biometria. O filtro
 cardíaco 0,7–4,0 Hz é processamento rPPG, não threshold de qualidade de captura.
 
+## Lighting Quality
+
+### Objetivo e escopo
+
+**[IMPLEMENTADO]** `capture/lighting_quality.py` mede, por frame, a iluminação
+da região facial já delimitada pela `bbox` do Face Framing. O checker recebe um
+frame RGB e `face_bbox=(x_min, y_min, x_max, y_max)` em pixels, recorta somente
+essa região e devolve `LightingQualityResult`. Assim, fundos claros ou escuros
+não entram no cálculo. Não há nova detecção facial, ROI anatômica, melhoria de
+imagem ou alteração no pipeline rPPG.
+
+O resultado estruturado contém `face_detected`, `mean_luminance`,
+`dark_pixel_ratio`, `bright_pixel_ratio`, `illumination_uniformity`,
+`lighting_ok`, `status` e `message`. Com face/região indisponível, as métricas
+são `None` e `status` diferencia `FACE_NOT_DETECTED` de `INVALID_INPUT`.
+Quando há métricas, `status` é `METRICS_AVAILABLE` e `lighting_ok` é sempre
+`None`: o projeto ainda não toma uma decisão de qualidade de iluminação.
+
+### Métricas e cálculo
+
+O checker normaliza entradas RGB finitas de `[0,255]` ou `[0,1]` para `[0,1]`.
+Para uma região com pixels `R'`, `G'`, `B'` normalizados, a luma relativa usada
+como luminância operacional é a transformação Rec. 709:
+
+```text
+Y' = 0.2126 R' + 0.7152 G' + 0.0722 B'
+```
+
+| Métrica | Definição | Faixa |
+|---|---|---|
+| `mean_luminance` | Média espacial de `Y'` na bbox facial. | [0,1] |
+| `dark_pixel_ratio` | Fração de pixels cujo `Y' <= LIGHTING_DARK_PIXEL_LUMINANCE`. | [0,1] |
+| `bright_pixel_ratio` | Fração de pixels cujo maior canal RGB é `>= LIGHTING_BRIGHT_PIXEL_CHANNEL`; proxy de canal muito claro/próximo de clipping. | [0,1] |
+| `illumination_uniformity` | Divide a luma em uma grade configurável. Se `u_i` são as médias das células, retorna `1 - (max(u_i)-min(u_i))`, limitado a [0,1]. | [0,1]; maior é mais uniforme |
+
+A uniformidade usa distribuição espacial, não apenas média global: por exemplo,
+uma metade preta e outra branca em uma grade 2×2 gera uniformidade 0, enquanto
+uma região de luma constante gera 1.
+
+### Parâmetros e estado de calibração
+
+| Configuração | Valor inicial | Papel |
+|---|---:|---|
+| `LIGHTING_LUMA_WEIGHTS` | `(0.2126, 0.7152, 0.0722)` | Pesos Rec. 709 de `Y'`. |
+| `LIGHTING_DARK_PIXEL_LUMINANCE` | `0.10` | Classificação de pixel escuro para métrica. |
+| `LIGHTING_BRIGHT_PIXEL_CHANNEL` | `0.95` | Classificação de canal muito claro para métrica. |
+| `LIGHTING_UNIFORMITY_GRID_ROWS/COLUMNS` | `2` / `2` | Resolução espacial da métrica de uniformidade. |
+
+Os dois valores de classificação de pixel **não são thresholds finais de
+qualidade** e não definem `lighting_ok`. **[NÃO IMPLEMENTADO] Os thresholds
+finais de iluminação ainda não foram calibrados.**
+
+### Relação com a literatura e limitações
+
+O estudo de Li et al. avaliou rPPG em sete níveis de iluminância (6,3 a 100,0
+lux) e relata que a intensidade e o tipo de luz influenciam a qualidade de HR,
+além de diferenças entre ROIs faciais. Ele motiva medir a iluminação e manter a
+seleção de ROI separada, mas seus valores de lux são referências experimentais:
+**não podem ser convertidos diretamente em thresholds de pixel de webcam**.
+[Artigo original](https://www.nature.com/articles/s44325-026-00140-7).
+
+**[PARCIAL]** As métricas atuais são proxies de imagem e não medem iluminância
+física, espectro da fonte, exposição da câmera, tom de pele ou qualidade rPPG.
+Também não adicionam glabella, nasal dorsum ou malar; essas ROIs seguem como
+trabalho posterior.
+
+### Overlay
+
+`capture_video()` calcula as métricas a cada frame e exibe `Lighting`, `Mean
+luminance`, `Dark ratio`, `Bright ratio` e `Uniformity` no overlay, tanto no
+preview quanto durante a gravação. O overlay somente observa valores; ele não
+usa cores, mensagens de correção ou gate de captura para iluminação.
+
 ## 4. Camera check
 
 Não existe função/classe chamada literalmente `camera check`. **[INFERÊNCIA]**
@@ -211,9 +287,14 @@ do `FaceDetector`.
 
 ### Condição: iluminação
 
-- **Entrada/processamento/métrica/saída:** inexistentes no `HEAD` atual.
-- **Threshold:** inexistente.
-- **Implementado:** **NÃO**; o filtro histórico de brilho não existe mais.
+- **Entrada:** frame RGB e `framing.bbox` derivada dos landmarks existentes.
+- **Processamento/métricas:** luma Rec. 709 média, proporções de pixels
+  escuros/muito claros e uniformidade espacial por grade 2×2.
+- **Saída:** `LightingQualityResult`; métricas normalizadas e `lighting_ok=None`.
+- **Threshold:** classificadores de pixel configuráveis, não thresholds de
+  qualidade finais.
+- **Implementado:** **PARCIAL**; mede e exibe dados, mas não classifica a
+  iluminação como adequada/inadequada nem bloqueia frames.
 
 `capture_video()` só usa resultados para texto/cor/bbox: não retorna resultado
 de sessão, callback, JSON nem saída por frame.
@@ -225,6 +306,7 @@ de sessão, callback, JSON nem saída por frame.
 | `FaceDetector.detect` | `roi/face_detection.py` | RGB `H×W×3`, timestamp ms | lista `(x,y)` ou `None` | Landmarks MediaPipe. |
 | `MovementQualityChecker.update` | `capture/quality_check.py` | landmarks ou `None` | `MovementQualityResult` | Movimento temporal. |
 | `FaceFramingQualityChecker.evaluate` | mesmo | landmarks, `frame.shape` | `FaceFramingQualityResult` | Tamanho/posição por frame. |
+| `LightingQualityChecker.evaluate` | `capture/lighting_quality.py` | frame RGB, bbox facial | `LightingQualityResult` | Métricas de iluminação por frame. |
 | `capture_video` | `capture/capture_video.py` | índice OpenCV, duração, diretório opcional | caminho `str` ou erro | Preview e gravação. |
 | `analyze_video` | `analysis/analyze_video.py` | caminho `str`/`Path` | `AnalysisResult` | Análise offline. |
 | `compute_signal_metrics` | `biomarkers/signal_metrics.py` | vetor filtrado, FPS | dict de sete métricas | Qualidade de sinal. |
@@ -318,8 +400,9 @@ depende de arquivo e `combine_roi_and_methods` imprime benchmarks.
 ```
 
 Seria necessário adaptar posse dos objetos por sessão, validar/converter frames
-e serializar dataclasses. **[NÃO IMPLEMENTADO]** iluminação, `quality_score`,
-status de aptidão e biometria contínua; não devem constar como existentes.
+e serializar dataclasses. **[PARCIAL]** iluminação já fornece métricas, mas não
+um julgamento calibrado; `quality_score`, status de aptidão e biometria contínua
+continuam **[NÃO IMPLEMENTADOS]**.
 
 ## 9. Thresholds e decisão futura
 
@@ -327,7 +410,7 @@ status de aptidão e biometria contínua; não devem constar como existentes.
 |---|---|---|---|---|
 | Movimento | razão de deslocamento mediano | Sim; janela de 5 e contador consecutivo | 0,010 | Calibrar e definir uso dos 15 frames. |
 | Posicionamento | tamanho e centro normalizados da bbox | Sim; somente frame atual | Tamanho: 28%–45% largura, 45%–80% altura; centro: X 35%–65%, Y 32%–68% | Calibrar em outros cenários; possível estabilidade temporal. |
-| Iluminação | Nenhuma | Não | Nenhum | Escolher métrica, calibrar e testar. |
+| Iluminação | Luma média, ratios escuro/claro e uniformidade espacial | Sim; por frame, sem estado temporal | Só classificadores de pixels; nenhum limite de qualidade | Calibrar em webcam/ambientes reais e definir decisão. |
 | Qualidade geral | Métricas espectrais rPPG offline | Não durante captura | Nenhum score | Definir score, janelas e validação. |
 
 Movimento e framing podem virar estados binários, mas seus valores são
@@ -336,21 +419,24 @@ existem depois de acumular/processar o vídeo completo.
 
 ## 10. Testes
 
-Existe somente `test_quality_check.py`; não há testes versionados para câmera,
-OpenCV, `FaceDetector`, MP4, `analyze_video`, ROI ou métricas de sinal.
+Existem `test_quality_check.py` e `test_lighting_quality.py`; ainda não há
+testes versionados para câmera, OpenCV, `FaceDetector`, MP4, `analyze_video`,
+ROI anatômica ou métricas de sinal.
 
 Execução realizada, sem alterar testes:
 
 ```text
 .\.venv\Scripts\python.exe -m unittest discover -v
-Ran 18 tests — OK
+Ran 29 tests — OK
 ```
 
 Os testes de Face Framing cobrem tamanho abaixo/no limite mínimo/dentro/no
 limite máximo/acima do máximo, os quatro limites inclusivos de centralização,
 rosto fora da região, ausência de face e entradas inválidas/degeneradas. Os
-testes de movimento permanecem inalterados. Não exercitam hardware, MediaPipe,
-overlay, gravação nem rPPG.
+testes de iluminação cobrem frame uniforme/escuro/claro, ratios de pixels na
+ROI, isolamento do fundo, uniformidade alta/baixa, ausência de face, entradas
+inválidas e intervalos normalizados. Não exercitam hardware, MediaPipe, overlay,
+gravação nem rPPG.
 
 ## 11. Histórico relevante
 
@@ -362,8 +448,8 @@ Há um único commit em `main..capture-quality-mvp`:
 
 Antes do commit, `is_frame_quality_acceptable(rgb_frame, landmarks)` aceitava
 apenas face detectada e brilho médio RGB entre **20,0 e 235,0**. A função e
-esses thresholds não estão no `HEAD`; portanto iluminação não é verificada hoje.
-Não há commits separados de CLI/main ou iluminação nessa branch.
+esses thresholds não estão no `HEAD`. O `LightingQualityChecker` atual é uma
+implementação nova de métricas estruturadas; ele não reintroduz esse gate antigo.
 
 ## 12. Limitações conhecidas
 
@@ -372,8 +458,9 @@ Não há commits separados de CLI/main ou iluminação nessa branch.
 - Não há gate: após ENTER, face ausente, movimento ou framing inadequado ainda
   gravam todos os frames.
 - `READY_STABLE_FRAMES` não participa de decisão.
-- Iluminação, exposição, blur, pose, oclusão e qualidade biométrica durante a
-  captura não existem.
+- Iluminação possui métricas observacionais, mas não thresholds calibrados,
+  decisão `lighting_ok`, medição em lux ou validação de qualidade biométrica.
+- Exposição da câmera, blur, pose e oclusão continuam fora do escopo.
 - A análise rPPG usa vídeo completo e imprime benchmarks no console; não é API.
 - Não há evidência no código de calibração com dados reais.
 
@@ -384,7 +471,8 @@ Não há commits separados de CLI/main ou iluminação nessa branch.
 Landmarks MediaPipe por frame, feedback de movimento/framing, gravação contínua
 pós-ENTER, análise offline e Face Framing calibrado experimentalmente para a
 webcam/usuário testados. Os testes incluem os limites inclusivos de tamanho e
-centralização.
+centralização. Lighting Quality mede e exibe métricas estruturadas por região
+facial, sem decisão final.
 
 ### Parcialmente implementado
 
@@ -393,13 +481,14 @@ real: feedback sim; biometria/sinal não.
 
 ### Ainda não implementado
 
-Iluminação e demais condições citadas, score, gate de captura/processamento,
-resultado serializável por sessão e rPPG incremental. As métricas de qualidade
-do sinal rPPG continuam separadas do Capture Quality.
+Thresholds finais e decisão de iluminação, demais condições citadas, score,
+gate de captura/processamento, resultado serializável por sessão e rPPG
+incremental. As métricas de qualidade do sinal rPPG continuam separadas do
+Capture Quality.
 
 ### Sugestões futuras
 
-1. Implementar e calibrar iluminação como o próximo bloco, mantendo-a modular.
+1. Calibração experimental dos thresholds utilizando diferentes condições reais de iluminação.
 2. Reavaliar/calibrar Face Framing em dispositivos, usuários e ambientes diversos.
 3. Definir contrato de sessão/API e separar captura/UI da avaliação pura.
 4. Estabelecer janela mínima e validações para qualidade do sinal rPPG, que permanece separado.

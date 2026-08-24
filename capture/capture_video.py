@@ -11,6 +11,7 @@ from rPPG.capture.quality_check import (
     FaceFramingQualityChecker,
     MovementQualityChecker,
 )
+from rPPG.capture.lighting_quality import LightingQualityChecker
 from rPPG.config import (
     FACE_MAX_CENTER_OFFSET_X,
     FACE_MAX_CENTER_OFFSET_Y,
@@ -18,6 +19,11 @@ from rPPG.config import (
     FACE_MAX_WIDTH_RATIO,
     FACE_MIN_HEIGHT_RATIO,
     FACE_MIN_WIDTH_RATIO,
+    LIGHTING_BRIGHT_PIXEL_CHANNEL,
+    LIGHTING_DARK_PIXEL_LUMINANCE,
+    LIGHTING_LUMA_WEIGHTS,
+    LIGHTING_UNIFORMITY_GRID_COLUMNS,
+    LIGHTING_UNIFORMITY_GRID_ROWS,
     MODEL_PATH,
     MOVEMENT_THRESHOLD,
     MOVEMENT_WINDOW_SIZE,
@@ -51,6 +57,10 @@ def _format_ratio(value):
     return "--" if value is None else f"{value * 100:.1f}%"
 
 
+def _format_metric(value):
+    return "--" if value is None else f"{value:.3f}"
+
+
 def capture_video(camera_index=0, duration_s=30.0, output_dir=None):
     """Preview first, then record every camera frame after ENTER is pressed.
 
@@ -78,6 +88,13 @@ def capture_video(camera_index=0, duration_s=30.0, output_dir=None):
         FACE_MAX_CENTER_OFFSET_X,
         FACE_MAX_CENTER_OFFSET_Y,
     )
+    lighting_checker = LightingQualityChecker(
+        LIGHTING_LUMA_WEIGHTS,
+        LIGHTING_DARK_PIXEL_LUMINANCE,
+        LIGHTING_BRIGHT_PIXEL_CHANNEL,
+        LIGHTING_UNIFORMITY_GRID_ROWS,
+        LIGHTING_UNIFORMITY_GRID_COLUMNS,
+    )
     writer = None
     captured_frames = 0
     state = CaptureState.PREVIEW
@@ -94,6 +111,7 @@ def capture_video(camera_index=0, duration_s=30.0, output_dir=None):
             landmarks = detector.detect(rgb_frame, elapsed_ms)
             movement = movement_checker.update(landmarks)
             framing = framing_checker.evaluate(landmarks, frame.shape)
+            lighting = lighting_checker.evaluate(rgb_frame, framing.bbox)
 
             metric_text = "--" if movement.movement_metric is None else f"{movement.movement_metric:.4f}"
             lines = [
@@ -103,6 +121,11 @@ def capture_video(camera_index=0, duration_s=30.0, output_dir=None):
                 f"Face height: {_format_ratio(framing.face_height_ratio)}",
                 f"Center X: {_format_ratio(framing.face_center_x)}",
                 f"Center Y: {_format_ratio(framing.face_center_y)}",
+                "Lighting",
+                f"Mean luminance: {_format_metric(lighting.mean_luminance)}",
+                f"Dark ratio: {_format_ratio(lighting.dark_pixel_ratio)}",
+                f"Bright ratio: {_format_ratio(lighting.bright_pixel_ratio)}",
+                f"Uniformity: {_format_metric(lighting.illumination_uniformity)}",
             ]
             color = (0, 255, 0)
             if state is CaptureState.PREVIEW:

@@ -18,6 +18,14 @@ FACE_MAX_HEIGHT_RATIO = 0.80
 FACE_MAX_CENTER_OFFSET_X = 0.15
 FACE_MAX_CENTER_OFFSET_Y = 0.18
 
+# Lighting Quality MVP: measurement parameters only. They classify pixels for
+# metrics and are not final thresholds for lighting quality.
+LIGHTING_LUMA_WEIGHTS = (0.2126, 0.7152, 0.0722)
+LIGHTING_DARK_PIXEL_LUMINANCE = 0.10
+LIGHTING_BRIGHT_PIXEL_CHANNEL = 0.95
+LIGHTING_UNIFORMITY_GRID_ROWS = 2
+LIGHTING_UNIFORMITY_GRID_COLUMNS = 2
+
 HR_LOW_HZ = 0.8    # 48 bpm
 HR_HIGH_HZ = 3.0   # 180 bpm
 
